@@ -5,11 +5,11 @@ import os
 from scipy.ndimage import imread
 from tkinter import *
 from tkinter import ttk
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 import matplotlib
 from matplotlib.widgets import Cursor
 from skimage.color import rgb2gray
-
+import pickle
 
 matplotlib.use('TkAgg')
 
@@ -26,7 +26,7 @@ class CrossCenterFinder:
         self.master = Frame(root)
         self.master.grid(column=0, row=0, sticky=(N, W, E, S))
         root.title('Position center finder')
-
+        self.dir_path = os.path.dirname(os.path.realpath(__file__))
 
         self.image = np.zeros((1288, 1936, 3))
         self.detectorX = 22.7  # mm
@@ -72,25 +72,82 @@ class CrossCenterFinder:
         self.defpos_btn = ttk.Button(self.controlsFrame, text="Set default pos",
                                       command=self.set_defpos)
 
+        self.defpos_import_btn = ttk.Button(self.controlsFrame, text="Import ref positions",
+                                      command=self.import_defpos)
+
         self.mask_nr_label = Label(self.controlsFrame, text="Mask number:")
         self.mask_nr = StringVar()
         self.mask_nr.set('1')
         self.mask_nr_entry = Entry(self.controlsFrame, textvariable=self.mask_nr, justify='center')
         self.mask_nr_entry.bind("<Return>", self.mask_nr_entry_callback)
+
+
+        self.refpos = StringVar()
+        self.refpos.set("%.2f,%.2f"%(self.centerX, self.centerY))
+        refpos_label = Label(self.controlsFrame, text="Reference position X,Y")
+        self.refpos_xy_label = Label(self.controlsFrame, textvariable=self.refpos)
+
+
         self.import_btn.grid(column=0, row=0)
         self.analyse_btn.grid(column=0, row=1)
         self.defpos_btn.grid(column=1, row=1)
         self.mask_nr_label.grid(column=0, row=2)
         self.mask_nr_entry.grid(column=1, row=2)
+        self.defpos_import_btn.grid(column=1, row=0)
+        refpos_label.grid(column=0, row=3)
+        self.refpos_xy_label.grid(column=1, row=3)
 
-        self.refpositions_dict = {'1': 0}
-        self.refpos = 1
+        self.posfile = "mask_positions.p"
+        self.refpositions_dict = {}
+        self.allowed_mask_nr = np.arange(1, 17, 1)
+
+
+    def import_defpos(self):
+        if messagebox.askyesno("Import ref file", "Use default file?"):
+            try:
+                self.respositions_dict = pickle.load(open(self.posfile, 'rb'))
+            except (FileNotFoundError, IOError):
+                self.create_posfile()
+        else:
+            self.posfile = filedialog.askopenfilename(title="Select reference file")
+            try:
+                self.respositions_dict = pickle.load(open(self.posfile, 'rb'))
+            except (FileNotFoundError, IOError):
+                self.create_posfile()
+        return
+
+    def save_defpos(self):
+        try:
+            pickle.dump(self.refpositions_dict, open(self.posfile, 'wb'))
+        except (FileNotFoundError, IOError):
+            self.create_posfile()
 
     def set_defpos(self):
-        pass
+        if int(self.mask_nr.get()) in self.allowed_mask_nr:
+                self.refpositions_dict[self.mask_nr.get()] = [self.centerX, self.centerY]
+                self.refpos.set("%.2f,%.2f"%(self.centerX, self.centerY))
+                # also plot ref pos should change here
+        return
+
+    def create_posfile(self):
+        if messagebox.askyesno("Reference positions", "Create file %s?"%self.posfile):
+            pickle.dump(self.refpositions_dict, open(os.path.join(self.dir_path,self.posfile), 'wb'))
+        else:
+            self.posfile = filedialog.asksaveasfilename(master=self.master,
+                                                        title='Create file',
+                                                        initialdir=self.dir_path)
+            pickle.dump(self.refpositions_dict, open(self.posfile, 'wb'))
+        print("File created")
+        return
 
     def mask_nr_entry_callback(self, event):
-        self.refpos = self.refpositions_dict[self.mask_nr.get()]
+        if int(self.mask_nr.get()) in self.allowed_mask_nr:
+            try:
+                x, y = self.refpositions_dict[self.mask_nr.get()]
+                self.refpos.set("%.2f,%.2f"%(x,y))
+                # also plot ref pos should change here
+            except KeyError:
+                self.set_defpos()
         return
 
     def import_image(self):

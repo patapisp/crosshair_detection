@@ -140,8 +140,6 @@ class CrossCenterFinder:
         return
 
 
-
-
 if __name__ == '__main__':
 
     def on_closing(master):

@@ -46,8 +46,8 @@ class CrossCenterFinder:
         self.ly2 = plt.plot(self.centerX, self.centerY, color="r")[0]
 
         self.centerplot = plt.plot(self.centerX, self.centerY, 'rx')[0]
-        #self.crossh = self.ax.axhline(self.centerX, color="red", linewidth=1.2)
-        #self.crossv = self.ax.axvline(self.centerY, color="red", linewidth=1.2)
+        self.refplot = plt.plot(self.centerX, self.centerY, 'gx')[0]
+
         self.center_text = self.ax.text(0.4, 1.1, 'Center X:%.2f, Center Y:%.2f'%(self.centerX, self.centerY),
                                         ha='center', va='center',
                                         size=12, transform=self.ax.transAxes,
@@ -126,6 +126,9 @@ class CrossCenterFinder:
         if int(self.mask_nr.get()) in self.allowed_mask_nr:
                 self.refpositions_dict[self.mask_nr.get()] = [self.centerX, self.centerY]
                 self.refpos.set("%.2f,%.2f"%(self.centerX, self.centerY))
+                self.refplot.set_xdata(self.centerX)
+                self.refplot.set_ydata(self.centerY)
+                self.update_plot()
                 # also plot ref pos should change here
         return
 
@@ -145,6 +148,9 @@ class CrossCenterFinder:
             try:
                 x, y = self.refpositions_dict[self.mask_nr.get()]
                 self.refpos.set("%.2f,%.2f"%(x,y))
+                self.refplot.set_xdata(x)
+                self.refplot.set_ydata(y)
+                self.update_plot()
                 # also plot ref pos should change here
             except KeyError:
                 self.set_defpos()

@@ -1,6 +1,6 @@
 import numpy as np
 from tkinter import *
-from astropy.io import fits
+#from astropy.io import fits
 import os
 from scipy.ndimage import imread
 from tkinter import *
@@ -75,6 +75,9 @@ class CrossCenterFinder:
         self.defpos_import_btn = ttk.Button(self.controlsFrame, text="Import ref positions",
                                       command=self.import_defpos)
 
+        self.defpos_save_btn = ttk.Button(self.controlsFrame, text="Save ref positions",
+                                      command=self.save_defpos)
+
         self.mask_nr_label = Label(self.controlsFrame, text="Mask number:")
         self.mask_nr = StringVar()
         self.mask_nr.set('1')
@@ -94,6 +97,7 @@ class CrossCenterFinder:
         self.mask_nr_label.grid(column=0, row=2)
         self.mask_nr_entry.grid(column=1, row=2)
         self.defpos_import_btn.grid(column=1, row=0)
+        self.defpos_save_btn.grid(column=0, row=4)
         refpos_label.grid(column=0, row=3)
         self.refpos_xy_label.grid(column=1, row=3)
 
@@ -105,15 +109,15 @@ class CrossCenterFinder:
     def import_defpos(self):
         if messagebox.askyesno("Import ref file", "Use default file?"):
             try:
-                self.respositions_dict = pickle.load(open(self.posfile, 'rb'))
+                self.refpositions_dict = pickle.load(open(self.posfile, 'rb'))
             except (FileNotFoundError, IOError):
                 self.create_posfile()
         else:
             self.posfile = filedialog.askopenfilename(title="Select reference file")
             try:
-                self.respositions_dict = pickle.load(open(self.posfile, 'rb'))
+                self.refpositions_dict = pickle.load(open(self.posfile, 'rb'))
             except (FileNotFoundError, IOError):
-                self.create_posfile()
+                print("No such file %s"%self.posfile)
         return
 
     def save_defpos(self):

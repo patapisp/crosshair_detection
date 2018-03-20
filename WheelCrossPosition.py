@@ -48,14 +48,14 @@ class CrossCenterFinder:
         self.centerplot = plt.plot(self.centerX, self.centerY, 'rx')[0]
         self.refplot = plt.plot(self.centerX, self.centerY, 'gx')[0]
 
-        self.center_text = self.ax.text(0.4, 1.1, 'Center X:%.2f, Center Y:%.2f'%(self.centerX, self.centerY),
+        """self.center_text = self.ax.text(0.4, 1.1, 'Center X:%.2f, Center Y:%.2f'%(self.centerX, self.centerY),
                                         ha='center', va='center',
                                         size=12, transform=self.ax.transAxes,
                                         bbox=dict(facecolor='white', alpha=0.5))
         self.defocus_text = self.ax.text(0.4, 1.2, 'Defocus X:%.2f, Defocus Y:%.2f'%(0, 0),
                                         ha='center', va='center',
                                         size=12, transform=self.ax.transAxes,
-                                        bbox=dict(facecolor='white', alpha=0.5))
+                                        bbox=dict(facecolor='white', alpha=0.5))"""
         # get image plot onto canvas and app
         self.data_plot = FigureCanvasTkAgg(self.fig, master=self.master)
         self.data_plot.get_tk_widget().configure(borderwidth=0)
@@ -65,18 +65,13 @@ class CrossCenterFinder:
         #self.fig.canvas.mpl_connect('button_press_event', self.click_callback)
 
         self.controlsFrame = ttk.Frame(self.master)
+        self.refposFrame = ttk.Frame(self.master)
+
         self.import_btn = ttk.Button(self.controlsFrame, text="Import image",
                                      command=self.import_image)
         self.analyse_btn = ttk.Button(self.controlsFrame, text="Update",
                                       command=self.check_updated_img)
-        self.defpos_btn = ttk.Button(self.controlsFrame, text="Set default pos",
-                                      command=self.set_defpos)
 
-        self.defpos_import_btn = ttk.Button(self.controlsFrame, text="Import ref positions",
-                                      command=self.import_defpos)
-
-        self.defpos_save_btn = ttk.Button(self.controlsFrame, text="Save ref positions",
-                                      command=self.save_defpos)
 
         self.mask_nr_label = Label(self.controlsFrame, text="Mask number:")
         self.mask_nr = StringVar()
@@ -84,27 +79,67 @@ class CrossCenterFinder:
         self.mask_nr_entry = Entry(self.controlsFrame, textvariable=self.mask_nr, justify='center')
         self.mask_nr_entry.bind("<Return>", self.mask_nr_entry_callback)
 
+        self.center_var = StringVar()
+        self.center_var.set('Center X:%.2f, Center Y:%.2f'%(self.centerX, self.centerY))
+        center_lab = Label(self.controlsFrame, textvariable=self.center_var)
+        self.defocus_var = StringVar()
+        self.defocus_var.set('Sigma X:%.2f, Sigma Y:%.2f'%(0, 0))
+        defocus_lab = Label(self.controlsFrame, textvariable=self.defocus_var)
 
+
+
+        self.defpos_btn = ttk.Button(self.refposFrame, text="Set default pos",
+                                      command=self.set_defpos)
+
+        self.defpos_import_btn = ttk.Button(self.refposFrame, text="Import ref positions",
+                                      command=self.import_defpos)
+
+        self.defpos_save_btn = ttk.Button(self.refposFrame, text="Save ref positions",
+                                      command=self.save_defpos)
         self.refpos = StringVar()
         self.refpos.set("%.2f,%.2f"%(self.centerX, self.centerY))
-        refpos_label = Label(self.controlsFrame, text="Reference position X,Y")
-        self.refpos_xy_label = Label(self.controlsFrame, textvariable=self.refpos)
+        refpos_label = Label(self.refposFrame, text="Reference position X,Y")
+        self.refpos_xy_label = Label(self.refposFrame, textvariable=self.refpos)
+
+        self.diffpos_var = StringVar()
+
+        diffpos_lab = Label(self.controlsFrame, textvariable=self.diffpos_var,
+                            font=("Helvetica, 14"), pady=5)
 
 
         self.import_btn.grid(column=0, row=0)
-        self.analyse_btn.grid(column=0, row=1)
-        self.defpos_btn.grid(column=1, row=1)
-        self.mask_nr_label.grid(column=0, row=2)
-        self.mask_nr_entry.grid(column=1, row=2)
-        self.defpos_import_btn.grid(column=1, row=0)
-        self.defpos_save_btn.grid(column=0, row=4)
-        refpos_label.grid(column=0, row=3)
-        self.refpos_xy_label.grid(column=1, row=3)
+        self.analyse_btn.grid(column=1, row=0)
+        self.mask_nr_label.grid(column=0, row=1)
+        self.mask_nr_entry.grid(column=1, row=1)
+        center_lab.grid(column=0, row=2, columnspan=2)
+        defocus_lab.grid(column=0, row=3, columnspan=2)
+        diffpos_lab.grid(column=0, row=4, columnspan=2)
+
+        self.defpos_btn.grid(column=1, row=0)
+        self.defpos_import_btn.grid(column=0, row=0)
+        self.defpos_save_btn.grid(column=0, row=3)
+        refpos_label.grid(column=0, row=1)
+        self.refpos_xy_label.grid(column=1, row=1)
 
         self.posfile = "mask_positions.p"
         self.refpositions_dict = {}
         self.allowed_mask_nr = np.arange(1, 17, 1)
 
+        self.set_diffpos()
+
+    def set_diffpos(self):
+        if int(self.mask_nr.get()) in self.allowed_mask_nr:
+            try:
+                x, y = self.refpositions_dict[self.mask_nr.get()]
+                dx = self.centerX - x
+                dy = self.centerY - y
+            except:
+                dx = 0
+                dy = 0
+        else:
+            return
+        self.diffpos_var.set("DX: %.2f px, DY: %.2f px" % (dx, dy))
+        return
 
     def import_defpos(self):
         if messagebox.askyesno("Import ref file", "Use default file?"):
@@ -132,6 +167,7 @@ class CrossCenterFinder:
                 self.refpos.set("%.2f,%.2f"%(self.centerX, self.centerY))
                 self.refplot.set_xdata(self.centerX)
                 self.refplot.set_ydata(self.centerY)
+                self.set_diffpos()
                 self.update_plot()
                 # also plot ref pos should change here
         return
@@ -154,6 +190,7 @@ class CrossCenterFinder:
                 self.refpos.set("%.2f,%.2f"%(x,y))
                 self.refplot.set_xdata(x)
                 self.refplot.set_ydata(y)
+                self.set_diffpos()
                 self.update_plot()
                 # also plot ref pos should change here
             except KeyError:
@@ -178,8 +215,8 @@ class CrossCenterFinder:
         return
 
     def update_plot(self):
-        self.center_text.set_text('Center X:%.2f, Center Y:%.2f'%(self.centerX, self.centerY))
-        self.defocus_text.set_text('Defocus X:%.2f, Defocus Y:%.2f'%(self.dfx, self.dfy))
+        self.center_var.set('Center X:%.2f, Center Y:%.2f'%(self.centerX, self.centerY))
+        self.defocus_var.set('Defocus X:%.2f, Defocus Y:%.2f'%(self.dfx, self.dfy))
         self.im.set_data(self.image)
         self.fig.canvas.draw()
         return
@@ -215,12 +252,10 @@ if __name__ == '__main__':
         return
 
     root = Tk()
-    print("Created root")
     window = CrossCenterFinder(root)
-    print("Initialized window")
     window.data_plot.get_tk_widget().grid(column=2, row=0, columnspan=4, rowspan=5)
-    window.controlsFrame.grid(column=0, row=0, columnspan=2, rowspan=2)
-    print("Created data plot")
+    window.controlsFrame.grid(column=0, row=0, columnspan=2, rowspan=4)
+    window.refposFrame.grid(column=0, row=4, columnspan=2, rowspan=2)
     root.protocol("WM_DELETE_WINDOW", lambda: on_closing(root))  # make sure window close properly
 
     while True:

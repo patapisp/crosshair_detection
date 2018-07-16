@@ -41,21 +41,32 @@ def get_first_point(grad):
         return get_first_point(grad)
 
 
-
-def edge_points(img, dx=50, dy=50, step=50):
+def proccess_cut_img(img, xr = None, yr=None, thresh = 1):
+    if xr is not None:
+        img = img[xr[0]:xr[1], :]
+    if yr is not None:
+        img = img[:,yr[0]:yr[1]]
+    if thresh is not None:
+        img = 1 - img
+        img[img>thresh] = 1
+        img = 1 - img
+    return img
+    
+def edge_points(img, dx=50, dy=50, step=50, initX=200, initY=200):
     # first points for x and y direction
-    cuty = img[200,:]
-    cutx = img[:,200]
+    cutx = img[initX, :]
+    cuty = img[:, initY]
     x0 = get_first_point(np.gradient(cutx))
     y0 = get_first_point(np.gradient(cuty))
-    print(x0, y0)
+    #print(x0, y0)
+    
     cutx = np.max(cutx) - cutx
     cuty = np.max(cuty) - cuty
-    xdata = np.arange(x0-dx, x0+dx, 1)
+    xdata = np.arange(x0-int(0.5*dx), x0+int(0.5*dx), 1)
     ydata = np.arange(y0-dy, y0+dy, 1)
     px = fit_gaussian_response(xdata, cutx[xdata])
     py = fit_gaussian_response(ydata, cuty[ydata])
-
+    #print(px[0], py[0])
     cutoff_y1 = int(px[0]) # first edge point in x
     cutoff_x1 = int(py[0]) # first edge point in y
     sigmax, sigmay = px[1], py[1] # sigma ~ defocus
@@ -71,14 +82,14 @@ def edge_points(img, dx=50, dy=50, step=50):
     cutoff_y2 = int(px[0]) # first edge point in x
     cutoff_x2 = int(py[0]) # first edge point in y
 
-    pointsx = np.concatenate([np.arange(np.max([0,cutoff_x1-300]), cutoff_x1, step),
-                              np.arange(cutoff_x2+step, np.min([len(cuty),cutoff_x1+400]), step)])
-    pointsy = np.concatenate([np.arange(np.max([0,cutoff_y1-300]), cutoff_y1, step),
-                              np.arange(cutoff_y2+step, np.min([len(cutx),cutoff_y1+400]), step)])
-
+    pointsx = np.concatenate([np.arange(np.max([0,cutoff_x1-600]), cutoff_x1, step),
+                              np.arange(cutoff_x2+step, np.min([len(cuty),cutoff_x1+600]), step)])
+    pointsy = np.concatenate([np.arange(np.max([0,cutoff_y1-600]), cutoff_y1, step),
+                              np.arange(cutoff_y2+step, np.min([len(cutx),cutoff_y1+600]), step)])
+    #print('initial points', cutoff_y2, cutoff_x2)
     for yi in pointsx:
 
-        cutx = img[:,yi]
+        cutx = img[yi,:]
         x0 = cutoff_y1
         cutx = np.max(cutx) - cutx
         xdata = np.arange(x0-dx, x0+dx)
@@ -92,7 +103,7 @@ def edge_points(img, dx=50, dy=50, step=50):
             continue
 
 
-        xdata = np.arange(int(px[0])+dx, int(px[0])+2*dx)
+        xdata = np.arange(int(px[0])+dx, int(px[0])+3*dx)
         try:
             px2 = fit_gaussian_response(xdata, cutx[xdata], inverse=True)
         except RuntimeError:
@@ -101,6 +112,7 @@ def edge_points(img, dx=50, dy=50, step=50):
         if len(cutx) < px2[0] or px2[0]< 0:
             print("Failed to find right edge for yi=%i"%yi)
             continue
+        
         edges_x["left"].append(px[0])
         edges_x["sigma_left"].append(px[1])
 
@@ -110,7 +122,7 @@ def edge_points(img, dx=50, dy=50, step=50):
 
 
     for xi in pointsy:
-        cuty = img[xi,:]
+        cuty = img[:,xi]
         y0 = cutoff_x1
         cuty = np.max(cuty) - cuty
         ydata = np.arange(y0-dy, y0+dy)
@@ -123,7 +135,7 @@ def edge_points(img, dx=50, dy=50, step=50):
             print("Failed to find left edge for xi=%i"%xi)
             continue
 
-        ydata = np.arange(int(py[0])+dy, int(py[0])+2*dy)
+        ydata = np.arange(int(py[0])+dy, int(py[0])+3*dy)
         try:
             py2 = fit_gaussian_response(ydata, cuty[ydata], inverse=True)
         except RuntimeError:
@@ -140,9 +152,9 @@ def edge_points(img, dx=50, dy=50, step=50):
         edges_y["xi"].append(xi)
     return edges_x, edges_y
 
-def find_crosshair_center(img, dx=50, dy=50, step=50):
+def find_crosshair_center(img, step=50, **kwargs):
     ny, nx = np.shape(img)
-    ex, ey = edge_points(img, step=50)
+    ex, ey = edge_points(img, step=50, **kwargs)
 
     lx1 = np.polyfit(ex["yi"], ex["left"], deg=1)
     lx2 = np.polyfit(ex["yi"], ex["right"], deg=1)
